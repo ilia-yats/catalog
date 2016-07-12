@@ -149,6 +149,12 @@ abstract class AbstractCatalogController extends Controller
     public $categoryPkField = 'id';
 
     /**
+     * status flag field in category's table
+     * @var string
+     */
+    public $categoryActivityField = 'status';
+
+    /**
      * foreign key from category's table to category's table (to parent category)
      * @var string
      */
@@ -263,21 +269,19 @@ abstract class AbstractCatalogController extends Controller
 
         $categories = $this->categoryModel->getAll();
 
-        $i = 0;
         foreach($categories as $i => $category) {
             $table = [
-                'id'      => $category['id'],
-                'parent'  => $category['parent_id'] ? $category['parent_id'] : '#',
+                'id'      => $category[$this->categoryPkField],
+                'parent'  => $category[$this->categoryToParentFkField] ? $category[$this->categoryToParentFkField] : '#',
                 // TODO: solve how to get multi language name
-//                'text'    => $category['name'],
-                'text'    => 'name' . ++$i,
+                'text'    => $category['name'],
                 'icon'    => '',
                 'state'   => [
                     'opened'   => FALSE,
                     'disabled' => FALSE,
                     'selected' => FALSE,
                 ],
-                'li_attr' => ($category['status'] == 0) ? ['class' => 'deactivated_category'] : [],
+                'li_attr' => ($category[$this->categoryActivityField] == 0) ? ['class' => 'deactivated_category'] : [],
                 'a_attr'  => [],
             ];
 
@@ -306,7 +310,7 @@ abstract class AbstractCatalogController extends Controller
             } elseif($operation == 'create_node') {
                 $category = new $this->categoryModel->className();
                 // Parent category id may be absent, which means that new category should not have parent,
-                $category->parent_id = $request->post('parent_id', NULL);
+                $category->{$this->categoryToParentFkField} = $request->post('parent_id', NULL);
                 $category->name = Yii::t('app', 'New node');
                 $response['status'] = (int) $category->save();
             } elseif($operation == 'move_node') {
@@ -315,7 +319,7 @@ abstract class AbstractCatalogController extends Controller
                     if($parent_id == '#') {
                         $parent_id = NULL;
                     }
-                    $category->parent_id = $parent_id;
+                    $category->{$this->categoryToParentFkField} = $parent_id;
                     $response['status'] = (int) $category->save();
                 }
             } elseif($operation == 'delete_node') {
@@ -330,7 +334,7 @@ abstract class AbstractCatalogController extends Controller
                 }
             } elseif($operation == 'copy_node') {
                 $category = new $this->categoryModel->className();
-                $category->parent_id = $request->post('parent_id', NULL);
+                $category->{$this->categoryToParentFkField} = $request->post('parent_id', NULL);
                 $category->name = $request->post('name', '');
                 $response['status'] = (int) $category->save();
 
@@ -339,7 +343,7 @@ abstract class AbstractCatalogController extends Controller
                 if($categories = $this->categoryModel->getAllByPrimaryKeys($request->post('ids', 0))) {
                     $response['status'] = 1;
                     foreach($categories as $category) {
-                        $category->status = $this->categoryModel->getActiveStatus();
+                        $category->{$this->categoryActivityField} = $this->categoryModel->getActiveStatus();
                         if( ! $category->save()) {
                             $response['status'] = 0;
                         }
@@ -349,7 +353,7 @@ abstract class AbstractCatalogController extends Controller
                 if($categories = $this->categoryModel->getAllByPrimaryKeys($request->post('ids', 0))) {
                     $response['status'] = 1;
                     foreach($categories as $category) {
-                        $category->status = $this->categoryModel->getNotActiveStatus();
+                        $category->{$this->categoryActivityField} = $this->categoryModel->getNotActiveStatus();
                         if( ! $category->save()) {
                             $response['status'] = 0;
                         }
